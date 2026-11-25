@@ -7,14 +7,13 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   image:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Build image
         env:
@@ -31,13 +30,23 @@ jobs:
           vuln-type: os,library
           severity: HIGH,CRITICAL
 
-      - name: Configure AWS credentials with OIDC
+      - name: Validate AWS region
+        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          if [ -z "$AWS_REGION" ]; then
+            echo "::error::Set the AWS_REGION repository variable to your ECR region."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
         if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: aws-actions/configure-aws-credentials@v6.3.1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Sign in to Amazon ECR
         if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
